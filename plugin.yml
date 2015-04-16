@@ -1,0 +1,9 @@
+name: JSONAPI
+main: JSONAPI\plugin
+version: 1.0.0
+api: 1.8.0
+load: STARTUP
+author: Dirk Sarodnick
+authors: [d03n3rfr1tz3]
+description: A simple JSON API for Minecraft Pocket Edition PocketMine-Server.
+website: https://github.com/d03n3rfr1tz3/PocketMine.JSONAPI

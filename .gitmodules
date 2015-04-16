@@ -1,3 +1,0 @@
-[submodule "src/httpserver"]
-	path = src/httpserver
-	url = https://github.com/youngj/httpserver.git
