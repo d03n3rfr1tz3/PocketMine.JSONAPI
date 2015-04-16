@@ -1,7 +1,7 @@
 <?php
 namespace JSONAPI;
 
-use httpserver\HTTPServer
+use httpserver\HTTPServer;
 
 class JSONAPIServer extends HTTPServer
 {

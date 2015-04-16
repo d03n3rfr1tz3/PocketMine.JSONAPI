@@ -4,10 +4,10 @@ namespace JSONAPI;
 use pocketmine\plugin\PluginBase;
 
 use JSONAPI\JSONAPIServer;
-use JSONAPI\Chat
-use JSONAPI\Player
-use JSONAPI\Server
-use JSONAPI\World
+use JSONAPI\Chat;
+use JSONAPI\Player;
+use JSONAPI\Server;
+use JSONAPI\World;
 
 class JSONAPI extends PluginBase
 {

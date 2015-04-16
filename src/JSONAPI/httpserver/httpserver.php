@@ -1,4 +1,5 @@
 <?php
+namespace httpserver;
 
 /*
  * A simple standalone HTTP server for development that serves PHP scripts and static files.
@@ -9,9 +10,9 @@
  * http://github.com/youngj/httpserver
  */
  
-use httpserver\HTTPRequest
-use httpserver\HTTPResponse
-use httpserver\CGIStream
+use httpserver\HTTPRequest;
+use httpserver\HTTPResponse;
+use httpserver\CGIStream;
 
 class HTTPServer
 {

@@ -1,5 +1,5 @@
 <?php
-namespace httpserver
+namespace httpserver;
 
 /*
  * CGIStream is a PHP stream wrapper (http://www.php.net/manual/en/class.streamwrapper.php)
@@ -10,7 +10,7 @@ namespace httpserver
  * This allows the server to be notified via stream_select() when the CGI output is ready, rather than waiting
  * until the CGI process completes.
  */
-class CGIStream 
+class CGIStream
 {
     public $context;
     

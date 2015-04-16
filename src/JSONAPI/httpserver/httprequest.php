@@ -1,5 +1,5 @@
 <?php
-namespace httpserver
+namespace httpserver;
 
 /*
  * Copyright (c) 2011, Trust for Conservation Innovation
