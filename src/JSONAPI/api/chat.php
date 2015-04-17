@@ -1,9 +1,9 @@
 <?php
-namespace JSONAPI;
+namespace JSONAPI\api;
 
 class Chat
 {
-	private $plugin
+	private $plugin;
 
 	function __construct($plugin)
 	{

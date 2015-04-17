@@ -1,5 +1,5 @@
 name: JSONAPI
-main: JSONAPI\plugin
+main: JSONAPI\JSONAPI
 version: 1.0.0
 api: 1.8.0
 load: STARTUP

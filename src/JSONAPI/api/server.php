@@ -1,9 +1,9 @@
 <?php
-namespace JSONAPI;
+namespace JSONAPI\api;
 
 class Server
 {
-	private $plugin
+	private $plugin;
 
 	function __construct($plugin)
 	{
@@ -13,24 +13,25 @@ class Server
 	public function config() {
 		$server = $this->plugin->getServer();
 		return array(
-			'name' -> $server->getName(),
-			'serverName' -> $server->getServerName(),
-			'ip' -> $server->getIp(),
-			'port' -> $server->getPort(),
-			'version' -> $server->getVersion(),
-			'maxPlayers' -> $server->getMaxPlayers(),
-			'levelType' -> $server->getLevelType(),
-			'gameMode' -> $server->getGameMode(),
-			'difficulty' -> $server->getDifficulty(),
-			'hardcore' -> $server->isHardcore(),
-			'allowFlight' -> $server->getAllowFlight()
+			'name' => $server->getServerName(),
+			'motd' => $server->getMotd(),
+			'ip' => $server->getIp(),
+			'port' => $server->getPort(),
+			'version' => $server->getVersion(),
+			'maxPlayers' => $server->getMaxPlayers(),
+			'levelType' => $server->getLevelType(),
+			'gameMode' => $server->getGameMode(),
+			'difficulty' => $server->getDifficulty(),
+			'hardcore' => $server->isHardcore(),
+			'allowFlight' => $server->getAllowFlight()
 		);
 	}
 	
 	public function state() {
 		$server = $this->plugin->getServer();
 		return array(
-			
+			'maxPlayers' => $server->getMaxPlayers(),
+			'players' => count($server->getOnlinePlayers()),
 		);
 	}
 }
