@@ -1,6 +1,6 @@
 name: JSONAPI
 main: JSONAPI\JSONAPI
-version: 1.0.0
+version: 1.0.1
 api: 1.8.0
 load: STARTUP
 author: Dirk Sarodnick
