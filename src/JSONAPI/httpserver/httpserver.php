@@ -20,9 +20,6 @@ class HTTPServer
 	 */    
 	public $addr = '0.0.0.0';               // IP address to listen on
 	public $port = 80;                      // TCP port number to listen on    
-	public $cgi_env = array();              // associative array of additional environment variables to pass to php-cgi
-	public $server_id = 'HTTPServer/0.1';   // identifier string to use in 'Server' header of HTTP response
-	public $php_cgi = 'php-cgi';            // Path to php-cgi, if not in the PATH        
 	private $sock;
 
 	/* 
@@ -64,7 +61,7 @@ class HTTPServer
 	{
 		$port = $this->port;
 		echo "HTTP server listening on {$this->addr}:$port (see http://localhost:$port/)...\n";    
-	}    
+	}
 
 	/*
 	 * Subclasses could override to disallow other characters in path names
@@ -104,18 +101,15 @@ class HTTPServer
 	function run_once($startup = false)
 	{
 		if ($startup) {
-			$addr_port = "{$this->addr}:{$this->port}";
-			$this->sock = @stream_socket_server("tcp://$addr_port", $errno, $errstr);
-							  
+			$this->sock = stream_socket_server("tcp://{$this->addr}:{$this->port}", $errno, $errstr, STREAM_SERVER_LISTEN | STREAM_SERVER_BIND);
+			
 			if (!$this->sock)
 			{
 				$this->bind_error($errno, $errstr);
 				return;
 			}
 			
-			//stream_set_blocking($this->sock, 0);
-
-			// send startup event
+			stream_set_blocking($this->sock, 0);
 			$this->listening();
 		}
 		
@@ -125,7 +119,7 @@ class HTTPServer
 		$read = array();
 		$write = array();
 		foreach ($requests as $id => $request)
-		{            
+		{
 			if (!$request->is_read_complete())
 			{
 				$read[] = $request->socket;
@@ -144,17 +138,15 @@ class HTTPServer
 				{
 					$read[] = $response->stream;
 				}
-			}                
-		}            
+			}
+		}
+		
 		$read[] = $this->sock;       
 		$except = null;
-		
-		if (stream_select($read, $write, $except, null) < 1)
-			return;                
-					
+		if (@stream_select($read, $write, $except, 0, 0) < 1) return;
 		if (in_array($this->sock, $read)) // new client connection
 		{
-			$client = stream_socket_accept($this->sock);
+			$client = stream_socket_accept($this->sock, 1);
 			$requests[(int)$client] = new HTTPRequest($client);
 			
 			$key = array_search($this->sock, $read);
@@ -398,165 +390,16 @@ class HTTPServer
 	function response($status = 200, $content = '', $headers = null, $status_msg = null)
 	{
 		$response = new HTTPResponse($status, $content, $headers, $status_msg);
-		$response->headers['Server'] = $this->server_id;                
+		$response->headers['Server'] = 'JSONAPI v1.0';
 		return $response;        
 	}
-	  
+	
 	function text_response($status, $content)
 	{
 		$response = $this->response($status, $content);
 		$response->headers['Content-Type'] = 'text/plain';
 		return $response;
 	}
-	  
-	/*
-	 * Returns a HTTPResponse object for the static file at $local_path.
-	 */      
-	function get_static_response($request, $local_path)
-	{   
-		if (is_file($local_path))
-		{        
-			$headers = array(
-					'Content-Type' => static::get_mime_type($local_path),
-					'Cache-Control' => "max-age=8640000",
-					'Accept-Ranges' => 'bytes',
-			);        
-		
-			$file_size = filesize($local_path);
-		
-			if ($request->method === 'HEAD')
-			{
-				$headers['Content-Length'] = $file_size;
-				return $this->response(200, '', $headers);
-			}
-			else if ($request->method == 'GET')
-			{
-				$range = $request->get_header('range');        
-								
-				$file = fopen($local_path, 'rb');
-
-				if ($range && preg_match('#^bytes=(\d+)\-(\d*)$#', $range, $match))
-				{        
-					$start = (int)$match[1];
-					$end = (int)$match[2] ?: ($file_size - 1);
-								   
-					if ($end >= $file_size || $end < $start || $start < 0 || $start >= $file_size)
-					{
-						$response = $this->text_response(416, 'Invalid request range');
-					}
-					
-					$len = $end - $start + 1;
-					
-					$headers['Content-Length'] = $len;
-					$headers['Content-Range'] = "bytes $start-$end/$file_size";
-					
-					fseek($file, $start);
-					
-					if ($end == $file_size - 1)
-					{
-						return $this->response(206, $file, $headers);
-					}
-					else
-					{
-						$chunk = fread($file, $len);
-						return $this->response(206, $chunk, $headers);
-					}
-				}
-				else
-				{
-					$headers['Content-Length'] = $file_size;
-					// hopefully file size doesn't change before we're done writing the file            
-					$response = $this->response(200, $file, $headers);
-				}    
-			}
-			else
-			{
-				return $this->text_response(405, "Invalid HTTP method {$request->method}");
-			}
-		
-			return $response;
-		}
-		else if (is_dir($local_path))
-		{
-			return $this->text_response(403, "Directory listing not allowed");
-		}
-		else
-		{
-			return $this->text_response(404, "File not found");
-		}    
-	}        
-
-	/*
-	 * Executes the PHP script in $script_filename using php-cgi, and returns 
-	 * a HTTPResponse object. $cgi_env_override can be set to an associative array 
-	 * to set or override any environment variables in the CGI process (e.g. PATH_INFO).
-	 */
-	function get_php_response($request, $script_filename, $cgi_env_override = null)
-	{            
-		if (!is_file($script_filename))
-		{
-			return $this->text_response(404, "File not found");
-		}    
-		
-		$content_length = $request->get_header('Content-Length');
-
-		// see http://www.faqs.org/rfcs/rfc3875.html
-		$cgi_env = array(
-			'QUERY_STRING' => $request->query_string,
-			'REQUEST_METHOD' => $request->method,
-			'REQUEST_URI' => $request->request_uri,
-			'REDIRECT_STATUS' => 200,
-			'SCRIPT_FILENAME' => $script_filename,            
-			'SCRIPT_NAME' => $request->uri,
-			'SERVER_NAME' => $request->get_header('Host'),
-			'SERVER_PORT' => $this->port,
-			'SERVER_PROTOCOL' => 'HTTP/1.1',
-			'SERVER_SOFTWARE' => $this->server_id,
-			'CONTENT_TYPE' => $request->get_header('Content-Type'),
-			'CONTENT_LENGTH' => $content_length,            
-			'REMOTE_ADDR' => $request->remote_addr,
-		);                
-		
-		foreach ($request->headers as $name => $values)
-		{        
-			$name = str_replace('-','_', $name);
-			$name = strtoupper($name);
-			$cgi_env["HTTP_$name"] = $values[0];
-		}
-		
-		if ($cgi_env_override)
-		{
-			foreach ($cgi_env_override as $name => $value)
-			{
-				$cgi_env[$name] = $value;
-			}
-		}
-				
-		$response = $this->response();                    
-				
-		$context = stream_context_create(array(
-			'cgi' => array(
-				'env' => array_merge($_ENV, $this->cgi_env, $cgi_env),
-				'stdin' => $request->content_stream,
-				'server' => $this,
-				'response' => $response,
-			)
-		));
-		
-		$cgi_stream = fopen("cgi://{$this->php_cgi}", 'rb', false, $context);
-		
-		if ($cgi_stream)
-		{              
-			$response->stream = $cgi_stream;
-			$response->prepend_headers = false;
-			
-			return $response;
-		}
-		else
-		{
-			return $this->text_response(500, "Internal Server Error: {$this->php_cgi} was not found");
-		}
-	}         
 
 	static function parse_headers($headers_str)
 	{
@@ -582,43 +425,5 @@ class HTTPServer
 			}
 		}                
 		return $headers;
-	}                          
-		
-	static function get_mime_type($filename)
-	{
-		$pathinfo = pathinfo($filename);
-		$extension = strtolower($pathinfo['extension']);
-
-		return @static::$mime_types[$extension];
-	}        
-
-	/*
-	 * List of mime types for common file extensions
-	 * (c) Tyler Hall http://code.google.com/p/php-aws/
-	 * released under MIT License
-	 */
-	static $mime_types = array("323" => "text/h323", "acx" => "application/internet-property-stream", "ai" => "application/postscript", "aif" => "audio/x-aiff", "aifc" => "audio/x-aiff", "aiff" => "audio/x-aiff", 'apk' => "application/vnd.android.package-archive",
-		"asf" => "video/x-ms-asf", "asr" => "video/x-ms-asf", "asx" => "video/x-ms-asf", "au" => "audio/basic", "avi" => "video/quicktime", "axs" => "application/olescript", "bas" => "text/plain", "bcpio" => "application/x-bcpio", "bin" => "application/octet-stream", "bmp" => "image/bmp",
-		"c" => "text/plain", "cat" => "application/vnd.ms-pkiseccat", "cdf" => "application/x-cdf", "cer" => "application/x-x509-ca-cert", "class" => "application/octet-stream", "clp" => "application/x-msclip", "cmx" => "image/x-cmx", "cod" => "image/cis-cod", "cpio" => "application/x-cpio", "crd" => "application/x-mscardfile",
-		"crl" => "application/pkix-crl", "crt" => "application/x-x509-ca-cert", "csh" => "application/x-csh", "css" => "text/css", "dcr" => "application/x-director", "der" => "application/x-x509-ca-cert", "dir" => "application/x-director", "dll" => "application/x-msdownload", "dms" => "application/octet-stream", "doc" => "application/msword",
-		"dot" => "application/msword", "dvi" => "application/x-dvi", "dxr" => "application/x-director", "eps" => "application/postscript", "etx" => "text/x-setext", "evy" => "application/envoy", "exe" => "application/octet-stream", "fif" => "application/fractals", "flr" => "x-world/x-vrml", "gif" => "image/gif",
-		"gtar" => "application/x-gtar", "gz" => "application/x-gzip", "h" => "text/plain", "hdf" => "application/x-hdf", "hlp" => "application/winhlp", "hqx" => "application/mac-binhex40", "hta" => "application/hta", "htc" => "text/x-component", "htm" => "text/html", "html" => "text/html",
-		"htt" => "text/webviewhtml", "ico" => "image/x-icon", "ief" => "image/ief", "iii" => "application/x-iphone", "ins" => "application/x-internet-signup", "isp" => "application/x-internet-signup", "jfif" => "image/pipeg", "jpe" => "image/jpeg", "jpeg" => "image/jpeg", "jpg" => "image/jpeg",
-		"js" => "application/x-javascript", "latex" => "application/x-latex", "lha" => "application/octet-stream", "lsf" => "video/x-la-asf", "lsx" => "video/x-la-asf", "lzh" => "application/octet-stream", "m13" => "application/x-msmediaview", "m14" => "application/x-msmediaview", "m3u" => "audio/x-mpegurl", "man" => "application/x-troff-man",
-		"mdb" => "application/x-msaccess", "me" => "application/x-troff-me", "mht" => "message/rfc822", "mhtml" => "message/rfc822", "mid" => "audio/mid", "mny" => "application/x-msmoney", "mov" => "video/quicktime", "movie" => "video/x-sgi-movie", "mp2" => "video/mpeg", "mp3" => "audio/mpeg",
-		'mp4' => 'video/mp4',
-		"mpa" => "video/mpeg", "mpe" => "video/mpeg", "mpeg" => "video/mpeg", "mpg" => "video/mpeg", "mpp" => "application/vnd.ms-project", "mpv2" => "video/mpeg", "ms" => "application/x-troff-ms", "mvb" => "application/x-msmediaview", "nws" => "message/rfc822", "oda" => "application/oda",
-		'ogg' => 'video/ogg',
-		'ogv' => 'video/ogg',
-		"p10" => "application/pkcs10", "p12" => "application/x-pkcs12", "p7b" => "application/x-pkcs7-certificates", "p7c" => "application/x-pkcs7-mime", "p7m" => "application/x-pkcs7-mime", "p7r" => "application/x-pkcs7-certreqresp", "p7s" => "application/x-pkcs7-signature", "pbm" => "image/x-portable-bitmap", "pdf" => "application/pdf", "pfx" => "application/x-pkcs12",
-		"pgm" => "image/x-portable-graymap", "pko" => "application/ynd.ms-pkipko", "pma" => "application/x-perfmon", "pmc" => "application/x-perfmon", "pml" => "application/x-perfmon", "pmr" => "application/x-perfmon", "pmw" => "application/x-perfmon", "png" => "image/png", "pnm" => "image/x-portable-anymap", "pot" => "application/vnd.ms-powerpoint", "ppm" => "image/x-portable-pixmap",
-		"pps" => "application/vnd.ms-powerpoint", "ppt" => "application/vnd.ms-powerpoint", "prf" => "application/pics-rules", "ps" => "application/postscript", "pub" => "application/x-mspublisher", "qt" => "video/quicktime", "ra" => "audio/x-pn-realaudio", "ram" => "audio/x-pn-realaudio", "ras" => "image/x-cmu-raster", "rgb" => "image/x-rgb",
-		"rmi" => "audio/mid", "roff" => "application/x-troff", "rtf" => "application/rtf", "rtx" => "text/richtext", "scd" => "application/x-msschedule", "sct" => "text/scriptlet", "setpay" => "application/set-payment-initiation", "setreg" => "application/set-registration-initiation", "sh" => "application/x-sh", "shar" => "application/x-shar",
-		"sit" => "application/x-stuffit", "snd" => "audio/basic", "spc" => "application/x-pkcs7-certificates", "spl" => "application/futuresplash", "src" => "application/x-wais-source", "sst" => "application/vnd.ms-pkicertstore", "stl" => "application/vnd.ms-pkistl", "stm" => "text/html", "svg" => "image/svg+xml", "sv4cpio" => "application/x-sv4cpio",
-		"sv4crc" => "application/x-sv4crc", "t" => "application/x-troff", "tar" => "application/x-tar", "tcl" => "application/x-tcl", "tex" => "application/x-tex", "texi" => "application/x-texinfo", "texinfo" => "application/x-texinfo", "tgz" => "application/x-compressed", "tif" => "image/tiff", "tiff" => "image/tiff",
-		"tr" => "application/x-troff", "trm" => "application/x-msterminal", "tsv" => "text/tab-separated-values", "txt" => "text/plain", "uls" => "text/iuls", "ustar" => "application/x-ustar", "vcf" => "text/x-vcard", "vrml" => "x-world/x-vrml", "wav" => "audio/x-wav", "wcm" => "application/vnd.ms-works",
-		"wdb" => "application/vnd.ms-works",
-		'webm' => 'video/webm',
-		"wks" => "application/vnd.ms-works", "wmf" => "application/x-msmetafile", "wps" => "application/vnd.ms-works", "wri" => "application/x-mswrite", "wrl" => "x-world/x-vrml", "wrz" => "x-world/x-vrml", "xaf" => "x-world/x-vrml", "xbm" => "image/x-xbitmap", "xla" => "application/vnd.ms-excel",
-		"xlc" => "application/vnd.ms-excel", "xlm" => "application/vnd.ms-excel", "xls" => "application/vnd.ms-excel", "xlt" => "application/vnd.ms-excel", "xlw" => "application/vnd.ms-excel", "xof" => "x-world/x-vrml", "xpm" => "image/x-xpixmap", "xwd" => "image/x-xwindowdump", "z" => "application/x-compress", "zip" => "application/zip");    
+	}
 }

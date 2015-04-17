@@ -18,6 +18,11 @@ class JSONAPIServer extends HTTPServer
 		));
 	}
 	
+	function listening()
+	{
+		$this->getOwner()->getLogger()->info("JSONAPI listening on {$this->addr}:{$this->port}.");
+	}
+	
 	function route_request($request)
 	{
 		$plugin = $this->getOwner();

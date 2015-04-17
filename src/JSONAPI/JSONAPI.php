@@ -5,7 +5,6 @@ use pocketmine\plugin\PluginBase;
 
 use JSONAPI\JSONAPIServer;
 use JSONAPI\JSONAPITask;
-use JSONAPI\api\Chat;
 use JSONAPI\api\Player;
 use JSONAPI\api\Server;
 use JSONAPI\api\World;
@@ -19,7 +18,6 @@ class JSONAPI extends PluginBase
 	function __construct()
 	{
 		$this->handlers = array(
-			'chat' => new Chat($this),
 			'player' => new Player($this),
 			'server' => new Server($this),
 			'world' => new World($this)
@@ -57,8 +55,8 @@ class JSONAPI extends PluginBase
 	{
 		$uri;
 		preg_match('#^/api/([a-z]+)/([a-z]+)#i', $request->uri, $uri);
-		$class = $uri[1];
-		$method = $uri[2];
+		$class = array_key_exists(1, $uri) ? $uri[1] : null;
+		$method = array_key_exists(2, $uri) ? $uri[2] : 'all';
 		
 		if (array_key_exists($class, $this->handlers)) {
 			if (method_exists($this->handlers[$class], $method)) {
