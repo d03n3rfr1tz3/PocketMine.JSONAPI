@@ -24,7 +24,7 @@ class PlayerHandler implements IHandler
 		return array_keys($this->methods);
 	}
     public function handle($name, $arguments = null) {
-		$this->{$this->methods[$name]}($arguments == null ? array() : $arguments);
+		return $this->{$this->methods[$name]}($arguments == null ? array() : $arguments);
 	}
 	
 	private function getPlayerByName($arguments) {
@@ -33,28 +33,31 @@ class PlayerHandler implements IHandler
 		$result = array();
 		
 		$player = $server->getOfflinePlayer($arguments[0]);
+		
+		$location = method_exists($player, 'getLocation') ? $player->getLocation() : null;
 		$spawn = method_exists($player, 'getSpawn') ? $player->getSpawn() : null;
-			return array(
-				'name' => $player->getName(),
-				'ip' => method_exists($player, 'getAddress') ? $player->getAddress() : null,
-				'port' => method_exists($player, 'getPort') ? $player->getPort() : null,
-				'gamemode' => method_exists($player, 'getGameMode') ? $player->getGameMode() : $server->getGameMode(),
-				'health' => method_exists($player, 'getHealth') ? $player->getHealth() : null,
-				'location' => array(
-					'X' => $player->getX(),
-					'Y' => $player->getY(),
-					'Z' => $player->getZ(),
-					'world' => $player->getLevel()->getName()
-				),
-				'spawn' => $spawn == null ? null : array(
-					'X' => $spawn->getX(),
-					'Y' => $spawn->getY(),
-					'Z' => $spawn->getZ(),
-					'world' => $spawn->getLevel()->getName()
-				),
-				'firstplayed' => $player->getFirstPlayed(),
-				'lastplayed' => $player->getLastPlayed()
-			);
+		return array(
+			'name' => $player->getName(),
+			'ip' => method_exists($player, 'getAddress') ? $player->getAddress() : null,
+			'port' => method_exists($player, 'getPort') ? $player->getPort() : null,
+			'gameMode' => method_exists($player, 'getGameMode') ? $player->getGameMode() : $server->getGameMode(),
+			'health' => method_exists($player, 'getHealth') ? $player->getHealth() : null,
+			'worldInfo' => array(
+				'name' => method_exists($player, 'getLevel') ? $player->getLevel()->getName() : $server->getDefaultLevel()->getName()
+			),
+			'location' => $location == null ? null : array(
+				'x' => $location->getX(),
+				'y' => $location->getY(),
+				'z' => $location->getZ()
+			),
+			'spawn' => $spawn == null ? null : array(
+				'x' => $spawn->getX(),
+				'y' => $spawn->getY(),
+				'z' => $spawn->getZ()
+			),
+			'firstPlayed' => round($player->getFirstPlayed() / 1000),
+			'lastPlayed' => round($player->getLastPlayed() / 1000)
+		);
 	}
 	
 	private function getOnlinePlayers($arguments) {
@@ -64,27 +67,29 @@ class PlayerHandler implements IHandler
 		
 		$onlinePlayers = $server->getOnlinePlayers();
 		foreach ($onlinePlayers as $player) {
+			$location = method_exists($player, 'getLocation') ? $player->getLocation() : null;
 			$spawn = method_exists($player, 'getSpawn') ? $player->getSpawn() : null;
 			array_push($result, array(
 				'name' => $player->getName(),
 				'ip' => $player->getAddress(),
 				'port' => $player->getPort(),
-				'gamemode' => $player->getGameMode(),
+				'gameMode' => $player->getGameMode(),
 				'health' => $player->getHealth(),
-				'location' => array(
-					'X' => $player->getX(),
-					'Y' => $player->getY(),
-					'Z' => $player->getZ(),
-					'world' => $player->getLevel()->getName()
+				'worldInfo' => array(
+					'name' => method_exists($player, 'getLevel') ? $player->getLevel()->getName() : $server->getDefaultLevel()->getName()
+				),
+				'location' => $location == null ? null : array(
+					'x' => $location->getX(),
+					'y' => $location->getY(),
+					'z' => $location->getZ()
 				),
 				'spawn' => $spawn == null ? null : array(
-					'X' => $spawn->getX(),
-					'Y' => $spawn->getY(),
-					'Z' => $spawn->getZ(),
-					'world' => $spawn->getLevel()->getName()
+					'x' => $spawn->getX(),
+					'y' => $spawn->getY(),
+					'z' => $spawn->getZ()
 				),
-				'firstplayed' => $player->getFirstPlayed(),
-				'lastplayed' => $player->getLastPlayed()
+				'firstPlayed' => round($player->getFirstPlayed() / 1000),
+				'lastPlayed' => round($player->getLastPlayed() / 1000)
 			));
 		}
 		return $result;
@@ -99,27 +104,29 @@ class PlayerHandler implements IHandler
 		$onlinePlayers = $server->getOnlinePlayers();
 		foreach ($onlinePlayers as $player) {
 			$name = $player->getName();
+			$location = method_exists($player, 'getLocation') ? $player->getLocation() : null;
 			$spawn = method_exists($player, 'getSpawn') ? $player->getSpawn() : null;
 			array_push($result, array(
 				'name' => $name,
 				'ip' => $player->getAddress(),
 				'port' => $player->getPort(),
-				'gamemode' => $player->getGameMode(),
+				'gameMode' => $player->getGameMode(),
 				'health' => $player->getHealth(),
-				'location' => array(
-					'X' => $player->getX(),
-					'Y' => $player->getY(),
-					'Z' => $player->getZ(),
-					'world' => $player->getLevel()->getName()
+				'worldInfo' => array(
+					'name' => method_exists($player, 'getLevel') ? $player->getLevel()->getName() : $server->getDefaultLevel()->getName()
+				),
+				'location' => $location == null ? null : array(
+					'x' => $location->getX(),
+					'y' => $location->getY(),
+					'z' => $location->getZ()
 				),
 				'spawn' => $spawn == null ? null : array(
-					'X' => $spawn->getX(),
-					'Y' => $spawn->getY(),
-					'Z' => $spawn->getZ(),
-					'world' => $spawn->getLevel()->getName()
+					'x' => $spawn->getX(),
+					'y' => $spawn->getY(),
+					'z' => $spawn->getZ()
 				),
-				'firstplayed' => $player->getFirstPlayed(),
-				'lastplayed' => $player->getLastPlayed()
+				'firstPlayed' => round($player->getFirstPlayed() / 1000),
+				'lastPlayed' => round($player->getLastPlayed() / 1000)
 			));
 			array_push($onlineNames, $name);
 		}
@@ -137,16 +144,18 @@ class PlayerHandler implements IHandler
 			$spawn = method_exists($player, 'getSpawn') ? $player->getSpawn() : null;
 			array_push($result, array(
 				'name' => $player->getName(),
-				'gamemode' => method_exists($player, 'getGameMode') ? $player->getGameMode() : $server->getGameMode(),
+				'gameMode' => method_exists($player, 'getGameMode') ? $player->getGameMode() : $server->getGameMode(),
 				'health' => method_exists($player, 'getHealth') ? $player->getHealth() : null,
-				'spawn' => $spawn == null ? null : array(
-					'X' => $spawn->getX(),
-					'Y' => $spawn->getY(),
-					'Z' => $spawn->getZ(),
-					'world' => $spawn->getLevel()->getName()
+				'worldInfo' => array(
+					'name' => method_exists($player, 'getLevel') ? $player->getLevel()->getName() : $server->getDefaultLevel()->getName()
 				),
-				'firstplayed' => $player->getFirstPlayed(),
-				'lastplayed' => $player->getLastPlayed()
+				'spawn' => $spawn == null ? null : array(
+					'x' => $spawn->getX(),
+					'y' => $spawn->getY(),
+					'z' => $spawn->getZ()
+				),
+				'firstPlayed' => round($player->getFirstPlayed() / 1000),
+				'lastPlayed' => round($player->getLastPlayed() / 1000)
 			));
 		}
 		
@@ -162,11 +171,11 @@ class PlayerHandler implements IHandler
 		foreach ($onlinePlayers as $player) {
 			array_push($result, array(
 				'name' => $player->getName(),
+				'world' => method_exists($player, 'getLevel') ? $player->getLevel()->getName() : $server->getDefaultLevel()->getName(),
 				'location' => array(
-					'X' => $player->getX(),
-					'Y' => $player->getY(),
-					'Z' => $player->getZ(),
-					'world' => $player->getLevel()->getName()
+					'x' => $player->getX(),
+					'y' => $player->getY(),
+					'z' => $player->getZ()
 				)
 			));
 		}
@@ -185,11 +194,11 @@ class PlayerHandler implements IHandler
 			$spawn = method_exists($player, 'getSpawn') ? $player->getSpawn() : null;
 			array_push($result, array(
 				'name' => $name,
+				'world' => method_exists($player, 'getLevel') ? $player->getLevel()->getName() : $server->getDefaultLevel()->getName(),
 				'spawn' => $spawn == null ? null : array(
-					'X' => $spawn->getX(),
-					'Y' => $spawn->getY(),
-					'Z' => $spawn->getZ(),
-					'world' => $spawn->getLevel()->getName()
+					'x' => $spawn->getX(),
+					'y' => $spawn->getY(),
+					'z' => $spawn->getZ()
 				)
 			));
 			array_push($onlineNames, $name);
@@ -208,11 +217,11 @@ class PlayerHandler implements IHandler
 			$spawn = method_exists($player, 'getSpawn') ? $player->getSpawn() : null;
 			array_push($result, array(
 				'name' => $player->getName(),
+				'world' => method_exists($player, 'getLevel') ? $player->getLevel()->getName() : $server->getDefaultLevel()->getName(),
 				'spawn' => $spawn == null ? null : array(
-					'X' => $spawn->getX(),
-					'Y' => $spawn->getY(),
-					'Z' => $spawn->getZ(),
-					'world' => $spawn->getLevel()->getName()
+					'x' => $spawn->getX(),
+					'y' => $spawn->getY(),
+					'z' => $spawn->getZ()
 				)
 			));
 		}

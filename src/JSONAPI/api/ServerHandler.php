@@ -12,7 +12,7 @@ class ServerHandler implements IHandler
 	{
 		$this->plugin = $plugin;
 		$this->methods = array(
-			'server' => 'getConfiguration',
+			'server.setting' => 'getSettings',
 			'server.state' => 'getState'
 		);
 	}
@@ -21,10 +21,10 @@ class ServerHandler implements IHandler
 		return array_keys($this->methods);
 	}
     public function handle($name, $arguments = null) {
-		$this->{$this->methods[$name]}($arguments == null ? array() : $arguments);
+		return $this->{$this->methods[$name]}($arguments == null ? array() : $arguments);
 	}
 	
-	private function getConfiguration($arguments) {
+	private function getSettings($arguments) {
 		$server = $this->plugin->getServer();
 		return array(
 			'name' => $server->getServerName(),
@@ -46,6 +46,9 @@ class ServerHandler implements IHandler
 		return array(
 			'maxPlayers' => $server->getMaxPlayers(),
 			'players' => count($server->getOnlinePlayers()),
+			'maxRam' => (int) preg_replace('/[^0-9]/', '', $server->getConfigString("memory-limit")),
+			'ram' => round(memory_get_usage() / 1024 / 1024, 2),
+			'cpuusage' => $server->getTickUsage()
 		);
 	}
 }

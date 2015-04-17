@@ -91,9 +91,10 @@ class JSONAPI extends PluginBase
 			$handles = $this->getHandles();
 			if (!array_key_exists($method, $handles)) return array('error' => array('message' => "Method '{$requestObject['name']}' could not be found."));
 			
-			$responseObject = $handles[$method].handle($method, array_key_exists('arguments', $requestObject) ? $requestObject['arguments'] : null);
-			array_push($responseObjects, $responseObject);
+			$responseObject = $handles[$method]->handle($method, array_key_exists('arguments', $requestObject) ? $requestObject['arguments'] : null);
+			array_push($responseObjects, array('success' => $responseObject));
 		}
+		
 		return $responseObjects;
 	}
 }

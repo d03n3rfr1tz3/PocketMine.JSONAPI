@@ -22,7 +22,7 @@ class WorldHandler implements IHandler
 		return array_keys($this->methods);
 	}
     public function handle($name, $arguments = null) {
-		$this->{$this->methods[$name]}($arguments == null ? array() : $arguments);
+		return $this->{$this->methods[$name]}($arguments == null ? array() : $arguments);
 	}
 	
 	private function getWorlds($arguments) {
