@@ -5,22 +5,23 @@ use pocketmine\plugin\PluginBase;
 
 use JSONAPI\JSONAPIServer;
 use JSONAPI\JSONAPITask;
-use JSONAPI\api\Player;
-use JSONAPI\api\Server;
-use JSONAPI\api\World;
+use JSONAPI\api\PlayerHandler;
+use JSONAPI\api\ServerHandler;
+use JSONAPI\api\WorldHandler;
 
 class JSONAPI extends PluginBase
 {
 	private $handlers;
 	private $server;
 	private $task;
+	private $logins;
 	
 	function __construct()
 	{
 		$this->handlers = array(
-			'player' => new Player($this),
-			'server' => new Server($this),
-			'world' => new World($this)
+			new PlayerHandler($this),
+			new ServerHandler($this),
+			new WorldHandler($this)
 		);
 	}
 	
@@ -33,6 +34,7 @@ class JSONAPI extends PluginBase
 
 	public function onEnable()
 	{
+		$this->logins = $this->getConfig()->get('logins');
 		$this->getServer()->getScheduler()->scheduleDelayedRepeatingTask($this->task, 20, 2);
 		$this->getLogger()->info('JSONAPI is enabled!');
 	}
@@ -46,24 +48,52 @@ class JSONAPI extends PluginBase
 		return $this->server;
 	}
 	
+	public function getHandles() {
+		$handles = array();
+		foreach ($this->handlers as $handler) {
+			foreach ($handler->handles() as $handle) {
+				$handles[$handle] = $handler;
+			}
+		}
+		return $handles;
+	}
+	
 	public function canHandleRequest($request)
 	{
-		return preg_match('#^/api/#i', $request->uri);
+		return preg_match('#^/api/call#i', $request->uri) &&
+		(
+			($request->method == "GET" && preg_match('#&?json=#i', $request->query_string)) ||
+			($request->method == "POST" && $request->content_len > 0)
+		);
 	}
 	
 	public function handleRequest($request)
 	{
-		$uri;
-		preg_match('#^/api/([a-z]+)/([a-z]+)#i', $request->uri, $uri);
-		$class = array_key_exists(1, $uri) ? $uri[1] : null;
-		$method = array_key_exists(2, $uri) ? $uri[2] : 'all';
+		parse_str($request->query_string, $params);
 		
-		if (array_key_exists($class, $this->handlers)) {
-			if (method_exists($this->handlers[$class], $method)) {
-				return $this->handlers[$class]->{$method}();
-			}
-			return array('error' => array('message' => "Method '$method' could not be found."));
+		$requestJson = $request->method == "GET" ? $params['json'] : fread($request->content_stream, $request->content_len);
+		$requestJsonParsed = json_decode($requestJson, true);
+		$requestObjects = (array_keys($requestJsonParsed) !== range(0, count($requestJsonParsed) - 1)) ? array($requestJsonParsed) : $requestJsonParsed;
+		
+		$responseObjects = array();
+		foreach ($requestObjects as $requestObject) {
+			$authenticated = array_key_exists('username', $requestObject) && array_key_exists('key', $requestObject);
+			if (!$authenticated) return array('error' => array('message' => "You are not authenticated."));
+			
+			$method = $user = array_key_exists('name', $requestObject) ? $requestObject['name'] : '';
+			$user = array_key_exists('username', $requestObject) ? $requestObject['username'] : '';
+			$key = array_key_exists('key', $requestObject) ? $requestObject['key'] : '';
+			$pass = $this->logins[$user];
+			
+			$authorized = $key == hash('sha256', $user.$method.$pass);
+			if (!$authorized) return array('error' => array('message' => "User '$user' is not authorized."));
+			
+			$handles = $this->getHandles();
+			if (!array_key_exists($method, $handles)) return array('error' => array('message' => "Method '{$requestObject['name']}' could not be found."));
+			
+			$responseObject = $handles[$method].handle($method, array_key_exists('arguments', $requestObject) ? $requestObject['arguments'] : null);
+			array_push($responseObjects, $responseObject);
 		}
-		return array('error' => array('message' => "Namespace '$class' could not be found."));
+		return $responseObjects;
 	}
 }

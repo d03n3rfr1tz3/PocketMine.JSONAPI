@@ -1,16 +1,30 @@
 <?php
 namespace JSONAPI\api;
 
-class Server
+use JSONAPI\api\IHandler;
+
+class ServerHandler implements IHandler
 {
 	private $plugin;
+	private $methods;
 
 	function __construct($plugin)
 	{
 		$this->plugin = $plugin;
+		$this->methods = array(
+			'server' => 'getConfiguration',
+			'server.state' => 'getState'
+		);
 	}
 	
-	public function config() {
+	public function handles() {
+		return array_keys($this->methods);
+	}
+    public function handle($name, $arguments = null) {
+		$this->{$this->methods[$name]}($arguments == null ? array() : $arguments);
+	}
+	
+	private function getConfiguration($arguments) {
 		$server = $this->plugin->getServer();
 		return array(
 			'name' => $server->getServerName(),
@@ -27,7 +41,7 @@ class Server
 		);
 	}
 	
-	public function state() {
+	private function getState($arguments) {
 		$server = $this->plugin->getServer();
 		return array(
 			'maxPlayers' => $server->getMaxPlayers(),
